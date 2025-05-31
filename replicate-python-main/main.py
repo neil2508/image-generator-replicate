@@ -7,7 +7,7 @@ from base64 import b64encode
 app = Flask(__name__)
 client = replicate.Client(api_token=os.environ["REPLICATE_API_TOKEN"])
 
-def upload_to_wordpress(image_path, filename="output.webp"):
+def upload_to_wordpress(image_path, filename="output.png"):
     wp_url = os.environ["WP_URL"]
     wp_user = os.environ["WP_USER"]
     wp_pass = os.environ["WP_APP_PASS"]
@@ -17,7 +17,7 @@ def upload_to_wordpress(image_path, filename="output.webp"):
     headers = {
         "Authorization": f"Basic {token.decode()}",
         "Content-Disposition": f"attachment; filename={filename}",
-        "Content-Type": "image/webp"
+        "Content-Type": "image/png"
     }
 
     with open(image_path, 'rb') as img:
@@ -38,26 +38,22 @@ def generate_image():
         data = request.json
         prompt = data.get("prompt", "A warm, modern kitchen with natural light")
 
-        # Call Replicate model
         output = client.run(
-    "black-forest-labs/flux-1.1-pro",
-    input={
-        "prompt": prompt,
-        "aspect_ratio": "16:9",
-        "output_format": "webp",
-        "output_quality": 80,
-        "safety_tolerance": 2,
-        "prompt_upsampling": True
-    }
-)
+            "fofr/flux-black-light:d0d48e298dcb51118c3f903817c833bba063936637a33ac52a8ffd6a94859af7",
+            input={
+                "prompt": prompt,
+                "aspect_ratio": "16:9",
+                "output_format": "png"
+            }
+        )
 
-image_response = requests.get(output.url)
+        image_url = output[0]
+        image_response = requests.get(image_url)
 
-
-        with open("output.webp", "wb") as f:
+        with open("output.png", "wb") as f:
             f.write(image_response.content)
 
-        final_url = upload_to_wordpress("output.webp", filename="output.webp")
+        final_url = upload_to_wordpress("output.png", filename="output.png")
         return jsonify({ "image_url": final_url })
 
     except Exception as e:
