@@ -38,14 +38,16 @@ def generate_image():
     prompt = data.get("prompt", "A warm, modern kitchen")
 
     output = client.run(
-        "fofr/flux-black-light:d0d48e298dcb51118c3f903817c833bba063936637a33ac52a8ffd6a94859af7",
-        input={
-            "prompt": prompt,
-            "aspect_ratio": "16:9",
-            "output_format": "png"
-        }
-    )
-
+    "black-forest-labs/flux-1.1-pro",
+    input={
+        "prompt": prompt,
+        "aspect_ratio": "16:9",
+        "output_format": "png",
+        "output_quality": 90,
+        "safety_tolerance": 2,
+        "prompt_upsampling": True
+    }
+)
     image_url = output[0]
     image_response = requests.get(image_url)
 
