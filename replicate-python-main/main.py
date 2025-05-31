@@ -1,4 +1,6 @@
 import os
+import re
+import time
 import replicate
 import requests
 from flask import Flask, request, jsonify
@@ -34,31 +36,29 @@ def upload_to_wordpress(image_path, filename="output.png"):
 
 @app.route("/generate", methods=["POST"])
 def generate_image():
-    try:
-        data = request.json
-        prompt = data.get("prompt", "A warm, modern kitchen with natural light")
+    data = request.json
+    prompt = data.get("prompt", "A warm, modern kitchen")
+    headline = data.get("headline", "generated-image")
 
-        output = client.run(
-            "fofr/flux-black-light:d0d48e298dcb51118c3f903817c833bba063936637a33ac52a8ffd6a94859af7",
-            input={
-                "prompt": prompt,
-                "aspect_ratio": "16:9",
-                "output_format": "png"
-            }
-        )
+    # Clean and format the headline for a filename
+    safe_headline = re.sub(r'[^a-zA-Z0-9_\-]+', '-', headline.lower()).strip('-')
+    timestamp = int(time.time())
+    filename = f"{safe_headline}-{timestamp}.png"
 
-        image_url = output[0]
-        image_response = requests.get(image_url)
+    output = client.run(
+        "fofr/flux-black-light:d0d48e298dcb51118c3f903817c833bba063936637a33ac52a8ffd6a94859af7",
+        input={
+            "prompt": prompt,
+            "aspect_ratio": "16:9",
+            "output_format": "png"
+        }
+    )
 
-        with open("output.png", "wb") as f:
-            f.write(image_response.content)
+    with open("output.png", "wb") as f:
+        f.write(output[0].read())
 
-        final_url = upload_to_wordpress("output.png", filename="output.png")
-        return jsonify({ "image_url": final_url })
-
-    except Exception as e:
-        return jsonify({ "error": str(e) }), 500
+    image_url = upload_to_wordpress("output.png", filename=filename)
+    return jsonify({ "image_url": image_url })
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=8000)
