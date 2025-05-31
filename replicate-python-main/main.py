@@ -40,19 +40,19 @@ def generate_image():
 
         # Call Replicate model
         output = client.run(
-            "black-forest-labs/flux-1.1-pro",
-            input={
-                "prompt": prompt,
-                "aspect_ratio": "16:9",
-                "output_format": "webp",
-                "output_quality": 80,
-                "safety_tolerance": 2,
-                "prompt_upsampling": True
-            }
-        )
+    "black-forest-labs/flux-1.1-pro",
+    input={
+        "prompt": prompt,
+        "aspect_ratio": "16:9",
+        "output_format": "webp",
+        "output_quality": 80,
+        "safety_tolerance": 2,
+        "prompt_upsampling": True
+    }
+)
 
-        image_url = output[0]
-        image_response = requests.get(image_url)
+image_response = requests.get(output.url)
+
 
         with open("output.webp", "wb") as f:
             f.write(image_response.content)
