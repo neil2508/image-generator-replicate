@@ -5,11 +5,6 @@ import requests
 from flask import Flask, request, jsonify
 from base64 import b64encode
 
-app = Flask(__name__)
-@app.route("/", methods=["GET"])
-def home():
-    return "✅ Your app is running."
-
 # Set up Replicate client
 client = replicate.Client(api_token=os.environ["REPLICATE_API_TOKEN"])
 
