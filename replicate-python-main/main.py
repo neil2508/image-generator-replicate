@@ -6,7 +6,6 @@ from flask import Flask, request, jsonify
 from base64 import b64encode
 
 app = Flask(__name__)
-
 @app.route("/", methods=["GET"])
 def home():
     return "✅ Your app is running."
