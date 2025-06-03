@@ -1,4 +1,5 @@
 import os
+import re
 import replicate
 import requests
 from flask import Flask, request, jsonify
@@ -8,6 +9,10 @@ app = Flask(__name__)
 
 # Set up Replicate client
 client = replicate.Client(api_token=os.environ["REPLICATE_API_TOKEN"])
+
+# Utility to slugify the headline for a safe filename
+def slugify(text):
+    return re.sub(r'[-\s]+', '-', re.sub(r'[^\w\s-]', '', text.lower())).strip('-_')
 
 # Upload to WordPress
 def upload_to_wordpress(image_path, filename="output.png"):
@@ -45,11 +50,8 @@ def upload_to_wordpress(image_path, filename="output.png"):
 def generate_image():
     data = request.json
     prompt = data.get("prompt", "A modern eco kitchen with natural textures")
-
-    # Optional: Use blog title as filename
-    filename = data.get("filename", "output.png")
-    if not filename.endswith(".png"):
-        filename += ".png"
+    headline = data.get("headline", "output")
+    filename = f"{slugify(headline)}.png"
 
     output = client.run(
         "fofr/flux-black-light:d0d48e298dcb51118c3f903817c833bba063936637a33ac52a8ffd6a94859af7",
