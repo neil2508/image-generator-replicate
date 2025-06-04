@@ -1,40 +1,79 @@
-from flask import Flask, request, jsonify
+import os
+import re
 import replicate
-import base64
 import requests
+from flask import Flask, request, jsonify
+from base64 import b64encode
 
 app = Flask(__name__)
 
-@app.route("/generate-image", methods=["POST"])
+# Set up Replicate client
+client = replicate.Client(api_token=os.environ["REPLICATE_API_TOKEN"])
+
+# Utility to slugify the headline for a safe filename
+def slugify(text):
+    return re.sub(r'[-\s]+', '-', re.sub(r'[^\w\s-]', '', text.lower())).strip('-_')
+
+# Upload to WordPress
+def upload_to_wordpress(image_path, filename="output.png"):
+    wp_url = os.environ["WP_URL"]
+    wp_user = os.environ["WP_USER"]
+    wp_pass = os.environ["WP_APP_PASS"]
+
+    credentials = f"{wp_user}:{wp_pass}"
+    token = b64encode(credentials.encode())
+
+    headers = {
+        "Authorization": f"Basic {token.decode()}",
+        "Content-Disposition": f"attachment; filename={filename}",
+        "Content-Type": "image/png"
+    }
+
+    with open(image_path, 'rb') as img:
+        response = requests.post(
+            f"{wp_url}/wp-json/wp/v2/media",
+            headers=headers,
+            data=img
+        )
+
+    if response.status_code in [200, 201]:
+        media = response.json()
+        return {
+            "source_url": media["source_url"],
+            "id": media["id"]
+        }
+    else:
+        raise Exception(f"Upload failed: {response.status_code} - {response.text}")
+
+# Main image generation endpoint
+@app.route("/generate", methods=["POST"])
 def generate_image():
     data = request.json
-    prompt = data.get("prompt")
-    post_title = data.get("post_title")
+    prompt = data.get("prompt", "A modern eco kitchen with natural textures")
+    headline = data.get("headline", "output")
+    filename = f"{slugify(headline)}.png"
 
-    if not prompt or not post_title:
-        return jsonify({"error": "Missing 'prompt' or 'post_title' in request body"}), 400
+    output = client.run(
+        "fofr/flux-black-light:d0d48e298dcb51118c3f903817c833bba063936637a33ac52a8ffd6a94859af7",
+        input={
+            "prompt": prompt,
+            "aspect_ratio": "16:9",
+            "output_format": "png"
+        }
+    )
 
-    try:
-        output = replicate.run(
-            "stability-ai/sdxl:3e45b18b5c57b3d7e6d2db9b3e9459b745e8594b11e34ec98d70e740af57eb2c",
-            input={
-                "prompt": prompt,
-                "width": 1024,
-                "height": 576
-            }
-        )
-        image_url = output[0]
+    # Save image locally
+    with open(filename, "wb") as f:
+        f.write(output[0].read())
 
-        # Fetch image and convert to base64
-        image_data = requests.get(image_url).content
-        image_base64 = base64.b64encode(image_data).decode('utf-8')
+    # Upload to WordPress
+    media_data = upload_to_wordpress(filename, filename=filename)
 
-        return jsonify({
-            "image_url": image_url,
-            "image_base64": image_base64,
-            "image_name": f"{post_title.replace(' ', '_').lower()}.png"
-        })
+    return jsonify({
+        "image_url": media_data["source_url"],
+        "image_id": media_data["id"]
+    })
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
+# Run the Flask app
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8000)
